@@ -1,0 +1,49 @@
+# Archives & zips
+*.zip
+*.tar.gz
+*.rar
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+__pycache__/
+*.py[cod]
+
+# Environments
+.venv/
+venv/
+env/
+.env
+*.env
+
+# Databases & local run artifacts
+*.db
+*.sqlite3
+
+# Node & frontend build outputs
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+**/.vite/
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+.tsupgrader/
+**/.tsupgrader/
+
+# Large datasets
+data/raw/
+**/data/raw/
+data/processed/
+**/data/processed/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,13 @@
+{
+  "experiment": "E11",
+  "hardware_used": false,
+  "data_source": "software-generated telemetry and controller response",
+  "virtual_edge_commands": [
+    "HIL-AC"
+  ],
+  "hil_protocol_commands": [
+    "HIL-AC"
+  ],
+  "controller_status": "software_simulated",
+  "claim_boundary": "This checks protocol and software parity, not physical ESP32 timing."
+}

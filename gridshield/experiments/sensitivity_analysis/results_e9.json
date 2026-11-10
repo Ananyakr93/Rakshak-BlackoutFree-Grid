@@ -1,0 +1,111 @@
+{
+  "experiment": "E9",
+  "seed": 42,
+  "data_source": "synthetic aggregate active-power steps",
+  "claim_boundary": "Synthetic results evaluate the algorithm on generated signatures; they do not establish real-world NILM accuracy.",
+  "metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "confusion_matrix": {
+      "ceiling_fan": {
+        "ceiling_fan": 1,
+        "ev_charger_car": 0,
+        "geyser_15l": 0,
+        "split_ac_1ton": 0,
+        "unknown": 0
+      },
+      "ev_charger_car": {
+        "ceiling_fan": 0,
+        "ev_charger_car": 1,
+        "geyser_15l": 0,
+        "split_ac_1ton": 0,
+        "unknown": 0
+      },
+      "geyser_15l": {
+        "ceiling_fan": 0,
+        "ev_charger_car": 0,
+        "geyser_15l": 1,
+        "split_ac_1ton": 0,
+        "unknown": 0
+      },
+      "split_ac_1ton": {
+        "ceiling_fan": 0,
+        "ev_charger_car": 0,
+        "geyser_15l": 0,
+        "split_ac_1ton": 1,
+        "unknown": 0
+      },
+      "unknown": {
+        "ceiling_fan": 0,
+        "ev_charger_car": 0,
+        "geyser_15l": 0,
+        "split_ac_1ton": 0,
+        "unknown": 1
+      }
+    },
+    "sample_count": 5
+  },
+  "raw_events": [
+    {
+      "expected": "split_ac_1ton",
+      "predicted": "split_ac_1ton",
+      "confidence": 0.9932764940700254,
+      "classification": "classified",
+      "features": {
+        "absolute_delta_kw": 0.9932764940700254,
+        "signed_delta_kw": 0.9932764940700254,
+        "sample_interval_s": 1.0,
+        "change_rate_kw_per_s": 0.9932764940700254
+      }
+    },
+    {
+      "expected": "geyser_15l",
+      "predicted": "geyser_15l",
+      "confidence": 0.9995247161985383,
+      "classification": "classified",
+      "features": {
+        "absolute_delta_kw": 2.0009505676029233,
+        "signed_delta_kw": 2.0009505676029233,
+        "sample_interval_s": 1.0,
+        "change_rate_kw_per_s": 2.0009505676029233
+      }
+    },
+    {
+      "expected": "ceiling_fan",
+      "predicted": "ceiling_fan",
+      "confidence": 0.9567429545472343,
+      "classification": "classified",
+      "features": {
+        "absolute_delta_kw": 0.07824427840895742,
+        "signed_delta_kw": 0.07824427840895742,
+        "sample_interval_s": 1.0,
+        "change_rate_kw_per_s": 0.07824427840895742
+      }
+    },
+    {
+      "expected": "ev_charger_car",
+      "predicted": "ev_charger_car",
+      "confidence": 0.9993271469764985,
+      "classification": "classified",
+      "features": {
+        "absolute_delta_kw": 3.297779585022445,
+        "signed_delta_kw": 3.297779585022445,
+        "sample_interval_s": 1.0,
+        "change_rate_kw_per_s": 3.297779585022445
+      }
+    },
+    {
+      "expected": "unknown",
+      "predicted": null,
+      "confidence": 0.2739943072273775,
+      "classification": "unknown",
+      "features": {
+        "absolute_delta_kw": 5.695818786149654,
+        "signed_delta_kw": 5.695818786149654,
+        "sample_interval_s": 1.0,
+        "change_rate_kw_per_s": 5.695818786149654
+      }
+    }
+  ]
+}

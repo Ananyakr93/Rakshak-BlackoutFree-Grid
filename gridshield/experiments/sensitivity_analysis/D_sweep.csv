@@ -1,0 +1,4 @@
+sweep_name,parameter_name,parameter_value,mean_frequency_nadir_hz_p0,mean_frequency_nadir_hz_p2,mean_recovery_time_s_p0,mean_recovery_time_s_p2,scenario_config_hash
+D,D,1.0,49.482778239908036,49.52930507866247,,,797fba8110a37116bee55ab734139230fb83f951827674bad4a96bf13d95dbea
+D,D,1.5,49.497700241337306,49.54253450091688,,,ae18487cb069b84b2f4f29f8af16b2dce6fa8d98b9a2fc9fe6e386bb03629030
+D,D,2.0,49.51199499234399,49.55519216773038,,,7fc81643f2fe792639fc46bb1fb6d08dfd687053140fbfcb32deab538308eaf4

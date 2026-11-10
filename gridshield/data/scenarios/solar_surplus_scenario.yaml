@@ -1,0 +1,580 @@
+name: Solar Surplus Over-Frequency
+description: Excess rooftop solar injection causes over-frequency excursion. Tests O1 absorb stage and
+  two-sided response.
+seed: 42
+simulation_duration_s: 300.0
+area_mode: scaled
+disturbance:
+  type: solar_surplus
+  start_time_s: 5.0
+  magnitude_pu: 0.12
+  duration_s: 120.0
+  recovery_ramp_s: 30.0
+grid_params:
+  H: 4.0
+  D: 1.5
+  R: 0.05
+  deadband_hz: 0.03
+  Tg: 0.1
+  Tt: 0.4
+  up_reserve_pu: 0.2
+  down_reserve_pu: 0.1
+buildings:
+- building_id: B01
+  weight_k: 1
+  appliances:
+  - appliance_id: B01_A01
+    appliance_type: medical_device
+    priority: critical
+    rated_power_kw: 0.5
+    min_on_time_s: 0.0
+    min_off_time_s: 0.0
+    max_shed_minutes: null
+    enrolled: true
+  - appliance_id: B01_A02
+    appliance_type: medical_device
+    priority: critical
+    rated_power_kw: 0.5
+    min_on_time_s: 0.0
+    min_off_time_s: 0.0
+    max_shed_minutes: null
+    enrolled: true
+  - appliance_id: B01_A03
+    appliance_type: inverter_backed_load
+    priority: critical
+    rated_power_kw: 0.3
+    min_on_time_s: 0.0
+    min_off_time_s: 0.0
+    max_shed_minutes: null
+    enrolled: true
+  - appliance_id: B01_A04
+    appliance_type: refrigerator
+    priority: essential
+    rated_power_kw: 0.15
+    min_on_time_s: 30.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B01_A05
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+- building_id: B02
+  weight_k: 8
+  appliances:
+  - appliance_id: B02_A01
+    appliance_type: split_ac_1_5ton
+    priority: deferrable
+    rated_power_kw: 1.5
+    min_on_time_s: 120.0
+    min_off_time_s: 120.0
+    max_shed_minutes: 30.0
+    enrolled: true
+  - appliance_id: B02_A02
+    appliance_type: split_ac_1ton
+    priority: deferrable
+    rated_power_kw: 1.0
+    min_on_time_s: 120.0
+    min_off_time_s: 120.0
+    max_shed_minutes: 30.0
+    enrolled: true
+  - appliance_id: B02_A03
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B02_A04
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B02_A05
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B02_A06
+    appliance_type: refrigerator
+    priority: essential
+    rated_power_kw: 0.15
+    min_on_time_s: 30.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B02_A07
+    appliance_type: geyser_15l
+    priority: deferrable
+    rated_power_kw: 2.0
+    min_on_time_s: 60.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 60.0
+    enrolled: true
+  - appliance_id: B02_A08
+    appliance_type: water_pump
+    priority: essential
+    rated_power_kw: 0.75
+    min_on_time_s: 60.0
+    min_off_time_s: 60.0
+    max_shed_minutes: 20.0
+    enrolled: true
+  - appliance_id: B02_A09
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B02_A10
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B02_A11
+    appliance_type: inverter_backed_load
+    priority: critical
+    rated_power_kw: 0.3
+    min_on_time_s: 0.0
+    min_off_time_s: 0.0
+    max_shed_minutes: null
+    enrolled: true
+- building_id: B03
+  weight_k: 1
+  appliances:
+  - appliance_id: B03_A01
+    appliance_type: ev_charger_car
+    priority: deferrable
+    rated_power_kw: 3.3
+    min_on_time_s: 60.0
+    min_off_time_s: 10.0
+    max_shed_minutes: null
+    enrolled: true
+  - appliance_id: B03_A02
+    appliance_type: split_ac_1ton
+    priority: deferrable
+    rated_power_kw: 1.0
+    min_on_time_s: 120.0
+    min_off_time_s: 120.0
+    max_shed_minutes: 30.0
+    enrolled: true
+  - appliance_id: B03_A03
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B03_A04
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B03_A05
+    appliance_type: refrigerator
+    priority: essential
+    rated_power_kw: 0.15
+    min_on_time_s: 30.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 15.0
+    enrolled: true
+- building_id: B04
+  weight_k: 1
+  appliances:
+  - appliance_id: B04_A01
+    appliance_type: refrigerator
+    priority: essential
+    rated_power_kw: 0.15
+    min_on_time_s: 30.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B04_A02
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B04_A03
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B04_A04
+    appliance_type: water_pump
+    priority: essential
+    rated_power_kw: 0.75
+    min_on_time_s: 60.0
+    min_off_time_s: 60.0
+    max_shed_minutes: 20.0
+    enrolled: true
+- building_id: B05
+  weight_k: 1
+  appliances:
+  - appliance_id: B05_A01
+    appliance_type: water_pump
+    priority: essential
+    rated_power_kw: 0.75
+    min_on_time_s: 60.0
+    min_off_time_s: 60.0
+    max_shed_minutes: 20.0
+    enrolled: true
+  - appliance_id: B05_A02
+    appliance_type: geyser_15l
+    priority: deferrable
+    rated_power_kw: 2.0
+    min_on_time_s: 60.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 60.0
+    enrolled: true
+  - appliance_id: B05_A03
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B05_A04
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B05_A05
+    appliance_type: refrigerator
+    priority: essential
+    rated_power_kw: 0.15
+    min_on_time_s: 30.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 15.0
+    enrolled: true
+- building_id: B06
+  weight_k: 1
+  appliances:
+  - appliance_id: B06_A01
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B06_A02
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B06_A03
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B06_A04
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B06_A05
+    appliance_type: geyser_15l
+    priority: deferrable
+    rated_power_kw: 2.0
+    min_on_time_s: 60.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 60.0
+    enrolled: true
+  - appliance_id: B06_A06
+    appliance_type: water_pump
+    priority: essential
+    rated_power_kw: 0.75
+    min_on_time_s: 60.0
+    min_off_time_s: 60.0
+    max_shed_minutes: 20.0
+    enrolled: true
+- building_id: B07
+  weight_k: 1
+  appliances:
+  - appliance_id: B07_A01
+    appliance_type: inverter_backed_load
+    priority: critical
+    rated_power_kw: 0.3
+    min_on_time_s: 0.0
+    min_off_time_s: 0.0
+    max_shed_minutes: null
+    enrolled: true
+  - appliance_id: B07_A02
+    appliance_type: split_ac_1ton
+    priority: deferrable
+    rated_power_kw: 1.0
+    min_on_time_s: 120.0
+    min_off_time_s: 120.0
+    max_shed_minutes: 30.0
+    enrolled: true
+  - appliance_id: B07_A03
+    appliance_type: water_pump
+    priority: essential
+    rated_power_kw: 0.75
+    min_on_time_s: 60.0
+    min_off_time_s: 60.0
+    max_shed_minutes: 20.0
+    enrolled: true
+  - appliance_id: B07_A04
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B07_A05
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B07_A06
+    appliance_type: refrigerator
+    priority: essential
+    rated_power_kw: 0.15
+    min_on_time_s: 30.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 15.0
+    enrolled: true
+- building_id: B08
+  weight_k: 1
+  appliances:
+  - appliance_id: B08_A01
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B08_A02
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B08_A03
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B08_A04
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B08_A05
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B08_A06
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B08_A07
+    appliance_type: water_pump
+    priority: essential
+    rated_power_kw: 0.75
+    min_on_time_s: 60.0
+    min_off_time_s: 60.0
+    max_shed_minutes: 20.0
+    enrolled: true
+  - appliance_id: B08_A08
+    appliance_type: refrigerator
+    priority: essential
+    rated_power_kw: 0.15
+    min_on_time_s: 30.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B08_A09
+    appliance_type: inverter_backed_load
+    priority: critical
+    rated_power_kw: 0.3
+    min_on_time_s: 0.0
+    min_off_time_s: 0.0
+    max_shed_minutes: null
+    enrolled: true
+- building_id: B09
+  weight_k: 1
+  appliances:
+  - appliance_id: B09_A01
+    appliance_type: split_ac_1_5ton
+    priority: deferrable
+    rated_power_kw: 1.5
+    min_on_time_s: 120.0
+    min_off_time_s: 120.0
+    max_shed_minutes: 30.0
+    enrolled: true
+  - appliance_id: B09_A02
+    appliance_type: split_ac_1_5ton
+    priority: deferrable
+    rated_power_kw: 1.5
+    min_on_time_s: 120.0
+    min_off_time_s: 120.0
+    max_shed_minutes: 30.0
+    enrolled: true
+  - appliance_id: B09_A03
+    appliance_type: split_ac_1ton
+    priority: deferrable
+    rated_power_kw: 1.0
+    min_on_time_s: 120.0
+    min_off_time_s: 120.0
+    max_shed_minutes: 30.0
+    enrolled: true
+  - appliance_id: B09_A04
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B09_A05
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B09_A06
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B09_A07
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B09_A08
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B09_A09
+    appliance_type: inverter_backed_load
+    priority: critical
+    rated_power_kw: 0.3
+    min_on_time_s: 0.0
+    min_off_time_s: 0.0
+    max_shed_minutes: null
+    enrolled: true
+- building_id: B10
+  weight_k: 1
+  appliances:
+  - appliance_id: B10_A01
+    appliance_type: refrigerator
+    priority: essential
+    rated_power_kw: 0.15
+    min_on_time_s: 30.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B10_A02
+    appliance_type: lighting_led
+    priority: essential
+    rated_power_kw: 0.04
+    min_on_time_s: 5.0
+    min_off_time_s: 5.0
+    max_shed_minutes: 10.0
+    enrolled: true
+  - appliance_id: B10_A03
+    appliance_type: ceiling_fan
+    priority: essential
+    rated_power_kw: 0.075
+    min_on_time_s: 10.0
+    min_off_time_s: 10.0
+    max_shed_minutes: 15.0
+    enrolled: true
+  - appliance_id: B10_A04
+    appliance_type: geyser_15l
+    priority: deferrable
+    rated_power_kw: 2.0
+    min_on_time_s: 60.0
+    min_off_time_s: 30.0
+    max_shed_minutes: 60.0
+    enrolled: true
+  - appliance_id: B10_A05
+    appliance_type: split_ac_1ton
+    priority: deferrable
+    rated_power_kw: 1.0
+    min_on_time_s: 120.0
+    min_off_time_s: 120.0
+    max_shed_minutes: 30.0
+    enrolled: true
+  - appliance_id: B10_A06
+    appliance_type: water_pump
+    priority: essential
+    rated_power_kw: 0.75
+    min_on_time_s: 60.0
+    min_off_time_s: 60.0
+    max_shed_minutes: 20.0
+    enrolled: true
