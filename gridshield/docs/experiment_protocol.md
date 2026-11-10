@@ -23,7 +23,7 @@
 - **Metrics:** all
 
 ## E4: Staggered vs synchronized restoration
-- **Hypothesis:** Staggered restoration limits each pickup; synchronized restoration waits until the whole batch is eligible and its combined startup pickup passes the safety projection.
+- **Hypothesis:** Both modes restore at most one eligible, safe, capacity-supported appliance per control tick; deterministic stagger delays may change restoration timing and rebound behavior.
 - **Runner:** `experiments/sensitivity_analysis/run_e7_e8.py`
 - **Metrics:** rebound peak, recovery time, raw telemetry and restoration events.
 
@@ -44,8 +44,8 @@
 - **Metrics/raw data:** summary metrics, appliance events, and sampled telemetry in JSON.
 
 ## E8: Cold-load pickup under restoration modes
-- **Hypothesis:** Deterministic staggered appliance starts and safety-gated synchronized batches produce distinct pickup and rebound behavior.
-- **Baseline/proposed:** P2 synchronized batch restoration versus deterministic staggered restoration.
+- **Hypothesis:** Deterministic stagger delays and immediate progressive restoration produce distinct pickup and rebound behavior without simultaneous reconnection batches.
+- **Baseline/proposed:** P2 progressive restoration with deterministic stagger delays versus progressive restoration without those delays.
 - **Controlled variables:** same scenario, P2 policy, appliance profiles, and seeds.
 - **Runner:** `experiments/sensitivity_analysis/run_e7_e8.py`
 - **Metrics/raw data:** restoration events and frequency/demand telemetry.

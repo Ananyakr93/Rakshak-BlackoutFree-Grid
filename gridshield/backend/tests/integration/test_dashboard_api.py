@@ -565,6 +565,9 @@ def test_diagnostics_endpoints_report_simulated_subsystems(monkeypatch) -> None:
             "stable_timer_s": 0.0,
             "required_stability_s": 60.0,
             "stagger_enabled": False,
+            "available_generation_pu": 1.2,
+            "headroom_kw": 0.0,
+            "completed": False,
             "queue": [],
         },
     )

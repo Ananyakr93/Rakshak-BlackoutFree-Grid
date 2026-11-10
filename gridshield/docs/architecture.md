@@ -17,7 +17,7 @@ flowchart TD
     D --> E["Per-building Edge Agents: staged policy"]
     E --> F["Appliance Shed / Absorb Actions"]
     F --> B
-    B --> G["Staggered or synchronized, projection-checked restoration and startup transients"]
+    B --> G["Priority-aware progressive restoration, capacity/frequency gates and startup transients"]
     G --> D
     B --> H["P1 Baseline: ADMS + UFLS feeder emulator"]
     B --> I["Metrics: nadir, RoCoF, recovery, ENS, rebound, equity, p* frontier"]
@@ -36,8 +36,8 @@ flowchart TD
 |--------|-------------|
 | P0 Unmanaged | No demand-side action; governor only |
 | P1 ADMS Feeder | Emulates Southern Region feeder tripping; no priority awareness |
-| P2 Priority Edge | Appliance-level staged shedding; Critical loads never deliberately shed |
-| P2 Synchronized | Priority-aware shedding with safety-gated batch restoration |
+| P2 Priority Edge | Appliance-level staged shedding; critical loads are protected; restoration is staggered and progressive |
+| P2 Synchronized | Priority-aware shedding; restoration is progressive without deterministic stagger delays |
 | P3 No Restoration | Priority-aware shedding with restoration disabled |
 
 ## Data flow

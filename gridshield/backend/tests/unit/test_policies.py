@@ -14,6 +14,7 @@ Tests:
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 
 import pytest
 
@@ -27,21 +28,27 @@ from app.control.shedding_policy import (
 from app.schemas.scenario import GridParams, ScenarioConfig
 from app.twin.appliance import Appliance, ApplianceState
 from app.twin.building_twin import BuildingTwin
-from app.twin.grid_model import GridState
+from app.twin.grid_model import GridModel, GridState
 from app.twin.simulation_clock import _restoration_incident_id
 
 
-def _make_state(freq: float, rocof: float = 0.0) -> GridState:
+def _make_state(
+    freq: float,
+    rocof: float = 0.0,
+    demand_pu: float = 1.0,
+    generation_disturbance_pu: float = 0.0,
+) -> GridState:
     return GridState(
         time_s=100.0,
         frequency_hz=freq,
         delta_omega=(freq - 50.0) / 50.0,
         delta_Pm=0.0,
         delta_Pg=0.0,
-        demand_pu=1.0,
+        demand_pu=demand_pu,
         generation_pu=1.0,
         disturbance_pu=0.0,
         rocof_hz_per_s=rocof,
+        generation_disturbance_pu=generation_disturbance_pu,
     )
 
 
@@ -133,6 +140,47 @@ def test_adms_trips_critical_at_s1():
     critical_trip = next(event for event in feeder_events if event.priority == "critical")
     assert critical_trip.power_delta_kw == 0.5
     assert "P1 ADMS feeder trip stage1" in critical_trip.reason
+
+
+@pytest.mark.parametrize("stage", ["stage1", "stage2", "stage3"])
+def test_adms_zero_hold_does_not_trip_above_stage_threshold(stage):
+    params = GridParams(
+        t_s1_hold_s=0.0,
+        t_s2_hold_s=0.0,
+        t_s3_hold_s=0.0,
+    )
+    policy = ADMSFeederPolicy(
+        feeder_groups={stage: ["B1"]},
+        grid_params=params,
+    )
+    building = _make_building("B1")
+
+    _, events = policy.evaluate(_make_state(50.0), building, 100.0)
+
+    assert not any(event.event_type == "feeder_trip" for event in events)
+    assert all(appliance.state == ApplianceState.ON for appliance in building.appliances)
+
+
+@pytest.mark.parametrize(
+    ("stage", "frequency"),
+    [("stage1", 49.84), ("stage2", 49.59), ("stage3", 49.39)],
+)
+def test_adms_zero_hold_trips_when_stage_threshold_is_crossed(stage, frequency):
+    params = GridParams(
+        t_s1_hold_s=0.0,
+        t_s2_hold_s=0.0,
+        t_s3_hold_s=0.0,
+    )
+    policy = ADMSFeederPolicy(
+        feeder_groups={stage: ["B1"]},
+        grid_params=params,
+    )
+    building = _make_building("B1")
+
+    _, events = policy.evaluate(_make_state(frequency), building, 100.0)
+
+    assert {event.event_type for event in events} == {"feeder_trip"}
+    assert all(appliance.state == ApplianceState.SHED for appliance in building.appliances)
 
 
 # --------------------------------------------------------------------------
@@ -235,7 +283,7 @@ def test_adms_hold_timer_advances_once_per_sample_across_buildings():
             policy.evaluate(low_frequency, building, tick * 0.5)
 
     assert all(
-        appliance.state == ApplianceState.ON
+        appliance.state in {ApplianceState.ON, ApplianceState.RUNNING}
         for building in buildings
         for appliance in building.appliances
     )
@@ -339,7 +387,7 @@ def test_stagger_delay_is_appliance_specific_within_building():
     assert delay1 != delay2
 
 
-def test_synchronized_restoration_blocks_unsafe_combined_pickup():
+def test_synchronized_restoration_splits_unsafe_combined_pickup():
     policy = StaggeredRestorationPolicy(
         t_stable_s=0.0,
         f_recovery_hz=49.95,
@@ -360,13 +408,14 @@ def test_synchronized_restoration_blocks_unsafe_combined_pickup():
         appliance.shed(0.0)
         appliance.mark_waiting_restoration(0.0)
 
-    events = policy.tick(_make_state(49.99), [building], "incident", 1, 10.0)
-
-    assert not [event for event in events if event.event_type == "restore"]
-    assert all(
-        appliance.state == ApplianceState.WAITING_RESTORATION
-        for appliance in building.appliances
+    events = policy.tick(
+        _make_state(49.99, demand_pu=0.7), [building], "incident", 1, 10.0
     )
+
+    assert [event.event_type for event in events] == ["restore"]
+    assert sum(
+        appliance.state == ApplianceState.ON for appliance in building.appliances
+    ) == 1
 
 
 # --------------------------------------------------------------------------
@@ -500,13 +549,13 @@ def test_staggered_restoration_checks_cumulative_pickup():
 
     assert len(events) == 1
     assert sum(
-        appliance.state == ApplianceState.ON
+        appliance.state in {ApplianceState.ON, ApplianceState.RUNNING}
         for building in buildings
         for appliance in building.appliances
     ) == 1
 
 
-def test_synchronized_restoration_waits_until_combined_pickup_is_safe():
+def test_synchronized_restoration_progresses_one_safe_load_at_a_time():
     buildings = _two_waiting_loads()
     policy = StaggeredRestorationPolicy(
         t_stable_s=0.0,
@@ -517,17 +566,19 @@ def test_synchronized_restoration_waits_until_combined_pickup_is_safe():
         stagger_enabled=False,
     )
 
-    events = policy.tick(_make_state(50.0), buildings, "incident", 1, 0.5)
-
-    assert events == []
-    assert all(
-        appliance.state == ApplianceState.WAITING_RESTORATION
-        for building in buildings
-        for appliance in building.appliances
+    events = policy.tick(
+        _make_state(50.0, demand_pu=0.8), buildings, "incident", 1, 0.5
     )
 
+    assert len(events) == 1
+    assert sum(
+        appliance.state == ApplianceState.ON
+        for building in buildings
+        for appliance in building.appliances
+    ) == 1
 
-def test_synchronized_projection_accounts_for_startup_inrush():
+
+def test_progressive_projection_accounts_for_startup_inrush():
     buildings = []
     for building_id in ("B1", "B2"):
         building = BuildingTwin(
@@ -557,17 +608,19 @@ def test_synchronized_projection_accounts_for_startup_inrush():
         stagger_enabled=False,
     )
 
-    events = policy.tick(_make_state(50.0), buildings, "incident", 1, 0.5)
-
-    assert events == []
-    assert all(
-        appliance.state == ApplianceState.WAITING_RESTORATION
-        for building in buildings
-        for appliance in building.appliances
+    events = policy.tick(
+        _make_state(50.0, demand_pu=0.8), buildings, "incident", 1, 0.5
     )
 
+    assert len(events) == 1
+    assert sum(
+        appliance.state in {ApplianceState.ON, ApplianceState.RUNNING}
+        for building in buildings
+        for appliance in building.appliances
+    ) == 1
 
-def test_synchronized_restoration_waits_for_every_load_to_be_eligible():
+
+def test_progressive_restoration_does_not_wait_for_every_load_to_be_eligible():
     buildings = _two_waiting_loads()
     delayed = buildings[1].appliances[0]
     delayed.min_off_time_s = 10.0
@@ -579,17 +632,16 @@ def test_synchronized_restoration_waits_for_every_load_to_be_eligible():
         stagger_enabled=False,
     )
 
-    events = policy.tick(_make_state(50.0), buildings, "incident", 1, 0.5)
-
-    assert events == []
-    assert all(
-        appliance.state == ApplianceState.WAITING_RESTORATION
-        for building in buildings
-        for appliance in building.appliances
+    events = policy.tick(
+        _make_state(50.0, demand_pu=0.8), buildings, "incident", 1, 0.5
     )
 
+    assert len(events) == 1
+    assert buildings[0].appliances[0].state == ApplianceState.ON
+    assert delayed.state == ApplianceState.WAITING_RESTORATION
 
-def test_synchronized_restoration_releases_safe_batch_together():
+
+def test_synchronized_restoration_never_reconnects_a_batch_simultaneously():
     buildings = _two_waiting_loads()
     policy = StaggeredRestorationPolicy(
         t_stable_s=0.0,
@@ -600,11 +652,248 @@ def test_synchronized_restoration_releases_safe_batch_together():
         stagger_enabled=False,
     )
 
-    events = policy.tick(_make_state(50.0), buildings, "incident", 1, 0.5)
+    events = policy.tick(
+        _make_state(50.0, demand_pu=0.8), buildings, "incident", 1, 0.5
+    )
 
-    assert len(events) == 2
+    assert len(events) == 1
     assert {event.simulation_time_s for event in events} == {0.5}
-    assert all("Synchronized batch restore" in event.reason for event in events)
+    assert "Synchronized progressive restore" in events[0].reason
+    assert policy.tick(
+        _make_state(50.0, demand_pu=0.88), buildings, "incident", 1, 1.0
+    )[0].event_type == "restore"
+
+
+def test_large_unsafe_pickup_does_not_block_smaller_safe_pickup():
+    building = BuildingTwin(
+        "B1",
+        appliances=[
+            Appliance("a-large", "B1", "heater", "deferrable", 4.0),
+            Appliance("b-small", "B1", "fan", "deferrable", 0.5),
+        ],
+    )
+    for appliance in building.appliances:
+        appliance.shed(0.0)
+        appliance.mark_waiting_restoration(0.0)
+    policy = StaggeredRestorationPolicy(
+        t_stable_s=0.0,
+        f_recovery_hz=49.90,
+        f_safe_hz=49.95,
+        H=4.0,
+        area_base_kw=10.0,
+        base_delay_s=0.0,
+        stagger_enabled=False,
+    )
+
+    events = policy.tick(
+        _make_state(49.99, demand_pu=0.6), [building], "incident", 1, 1.0
+    )
+
+    assert [event.appliance_id for event in events] == ["b-small"]
+    assert building.appliances[0].state == ApplianceState.WAITING_RESTORATION
+    assert building.appliances[1].state == ApplianceState.ON
+
+
+def test_generation_capacity_defers_unsafe_load_until_replacement_is_available():
+    buildings = _two_waiting_loads()
+    for building in buildings:
+        building.appliances[0].rated_power_kw = 1.0
+    policy = StaggeredRestorationPolicy(
+        t_stable_s=0.0,
+        f_recovery_hz=49.90,
+        f_safe_hz=49.90,
+        H=4.0,
+        area_base_kw=10.0,
+        up_reserve_pu=0.20,
+        stagger_enabled=False,
+    )
+
+    loss_state = _make_state(
+        50.0, demand_pu=0.8, generation_disturbance_pu=-0.25
+    )
+    first_events = policy.tick(loss_state, buildings, "incident", 1, 1.0)
+    assert len(first_events) == 1
+    assert first_events[0].event_type == "restore"
+
+    remaining_state = _make_state(
+        50.0, demand_pu=0.9, generation_disturbance_pu=-0.25
+    )
+    assert policy.tick(remaining_state, buildings, "incident", 1, 1.5) == []
+    assert policy.tick(remaining_state, buildings, "incident", 1, 2.0) == []
+    limited = policy.snapshot(
+        remaining_state, buildings, "incident", 1
+    )
+    assert limited["available_generation_pu"] == pytest.approx(0.95)
+    assert limited["headroom_kw"] == pytest.approx(0.5)
+    assert limited["completed"] is False
+    assert limited["queue"][0]["capacity_supported"] is False
+
+    replacement_state = _make_state(50.0, demand_pu=0.9)
+    final_events = policy.tick(
+        replacement_state, buildings, "incident", 1, 2.5
+    )
+    assert len(final_events) == 1
+    assert sum(
+        appliance.state in {ApplianceState.ON, ApplianceState.RUNNING}
+        for building in buildings
+        for appliance in building.appliances
+    ) == 2
+    assert policy.snapshot(
+        replacement_state, buildings, "incident", 1
+    )["completed"] is True
+
+
+def test_severe_generation_loss_progressively_restores_after_replacement():
+    params = GridParams(dt_s=0.02, t_stable_s=1.0, up_reserve_pu=0.20)
+    grid = GridModel(params)
+    buildings = [
+        BuildingTwin(
+            "B0",
+            appliances=[Appliance("base", "B0", "fan", "essential", 8.0)],
+        )
+    ]
+    for building_id in ("B1", "B2"):
+        appliance = Appliance(
+            f"{building_id}-load",
+            building_id,
+            "split_ac_1ton",
+            "deferrable",
+            1.0,
+            compressor_lockout_s=0.0,
+        )
+        appliance.shed(0.0)
+        appliance.mark_waiting_restoration(0.0)
+        buildings.append(BuildingTwin(building_id, appliances=[appliance]))
+    policy = StaggeredRestorationPolicy(
+        t_stable_s=params.t_stable_s,
+        f_recovery_hz=params.f_recovery_hz,
+        f_freeze_hz=params.f_s1_hz,
+        f_safe_hz=49.90,
+        H=params.H,
+        area_base_kw=10.0,
+        up_reserve_pu=params.up_reserve_pu,
+        stagger_enabled=False,
+        sample_interval_s=0.5,
+    )
+    state = replace(
+        grid.initial_state(),
+        demand_pu=0.8,
+        appliance_demand_delta_pu=-0.2,
+    )
+    previous_demand_kw = 8.0
+    agent_elapsed_s = 0.0
+    restoration_start_s: float | None = None
+    restoration_frequency: list[float] = []
+    restore_events = []
+    frequency_nadir = state.frequency_hz
+
+    for _ in range(1500):
+        for building in buildings:
+            building.tick(state.time_s, params.dt_s)
+        demand_kw = sum(
+            appliance.current_power_kw * building.weight_k
+            for building in buildings
+            for appliance in building.appliances
+        )
+        demand_delta_pu = (demand_kw - previous_demand_kw) / 10.0
+        previous_demand_kw = demand_kw
+        generation_disturbance_pu = -0.25 if state.time_s < 20.0 else 0.0
+        state = grid.step(
+            state,
+            -generation_disturbance_pu,
+            demand_delta_pu,
+            generation_disturbance_pu=generation_disturbance_pu,
+        )
+        frequency_nadir = min(frequency_nadir, state.frequency_hz)
+        if restoration_start_s is not None:
+            restoration_frequency.append(state.frequency_hz)
+        agent_elapsed_s += params.dt_s
+        if agent_elapsed_s >= 0.5 - 1e-10:
+            agent_elapsed_s -= 0.5
+            events = policy.tick(state, buildings, "severe-loss", 1, state.time_s)
+            if events:
+                assert len(events) == 1
+                restore_events.extend(events)
+                if restoration_start_s is None:
+                    restoration_start_s = state.time_s
+                    restoration_frequency.append(state.frequency_hz)
+
+    assert len(restore_events) == 2
+    assert restore_events[0].simulation_time_s < restore_events[1].simulation_time_s
+    assert frequency_nadir < 49.0
+    assert all(
+        appliance.state == ApplianceState.ON
+        for building in buildings[1:]
+        for appliance in building.appliances
+    )
+    assert min(restoration_frequency) >= policy.f_safe_hz
+    assert policy.snapshot(state, buildings, "severe-loss", 1)["completed"] is True
+
+
+def test_frequency_relapse_pauses_and_resumes_restoration_without_flapping():
+    building = BuildingTwin(
+        "B1",
+        appliances=[
+            Appliance(
+                "load",
+                "B1",
+                "split_ac_1ton",
+                "deferrable",
+                0.2,
+                compressor_lockout_s=0.0,
+            )
+        ],
+    )
+    appliance = building.appliances[0]
+    appliance.shed(0.0)
+    appliance.mark_waiting_restoration(0.0)
+    policy = StaggeredRestorationPolicy(
+        t_stable_s=1.0,
+        f_recovery_hz=49.95,
+        f_freeze_hz=49.85,
+        f_safe_hz=49.90,
+        area_base_kw=10.0,
+        base_delay_s=0.0,
+        stagger_enabled=False,
+    )
+
+    assert policy.tick(_make_state(50.0), [building], "incident", 1, 0.5) == []
+    assert policy.tick(_make_state(49.90), [building], "incident", 1, 1.0) == []
+    assert policy.tick(_make_state(50.0), [building], "incident", 1, 1.5) == []
+    restored = policy.tick(_make_state(50.0), [building], "incident", 1, 2.0)
+
+    assert [event.event_type for event in restored] == ["restore"]
+    assert appliance.state == ApplianceState.RUNNING
+    assert policy.tick(_make_state(50.0), [building], "incident", 1, 2.5) == []
+    assert appliance.state == ApplianceState.RUNNING
+
+
+def test_critical_restoration_precedes_older_deferrable_loads():
+    building = BuildingTwin(
+        "B1",
+        appliances=[
+            Appliance("deferrable", "B1", "fan", "deferrable", 0.2),
+            Appliance("medical", "B1", "medical", "critical", 0.5),
+        ],
+    )
+    deferrable, medical = building.appliances
+    for appliance in building.appliances:
+        appliance.force_shed(0.0)
+        appliance.mark_waiting_restoration(0.0)
+    policy = StaggeredRestorationPolicy(
+        t_stable_s=0.0,
+        f_recovery_hz=49.90,
+        f_safe_hz=49.90,
+        area_base_kw=10.0,
+        base_delay_s=0.0,
+        stagger_enabled=False,
+    )
+
+    events = policy.tick(_make_state(50.0), [building], "incident", 1, 1.0)
+
+    assert [event.appliance_id for event in events] == ["medical"]
+    assert medical.state == ApplianceState.ON
+    assert deferrable.state == ApplianceState.WAITING_RESTORATION
 
 
 def test_edge_agent_transitions_to_autonomous_mode_using_sim_time():

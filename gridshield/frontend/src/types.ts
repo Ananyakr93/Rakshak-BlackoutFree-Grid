@@ -288,7 +288,9 @@ export interface RestorationQueueItem {
   waiting_since_s: number;
   stagger_delay_s: number;
   eligible_at_s: number;
+  estimated_pickup_kw: number;
   projected_frequency_hz: number;
+  capacity_supported: boolean;
   ready: boolean;
 }
 
@@ -302,6 +304,9 @@ export interface RestorationSnapshot {
   stable_timer_s: number;
   required_stability_s: number;
   stagger_enabled: boolean;
+  available_generation_pu: number;
+  headroom_kw: number;
+  completed: boolean;
   queue: RestorationQueueItem[];
 }
 

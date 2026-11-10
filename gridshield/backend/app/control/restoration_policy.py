@@ -2,7 +2,8 @@
 Staggered restoration policy for GridShield (framework.md §6.4).
 
 Eligible when frequency >= 49.95 Hz continuously for T_stable seconds.
-Release order: by waiting time (longest-waiting first).
+Release order: critical, essential, then deferrable; longest-waiting first
+within each priority tier. At most one appliance is restored per agent tick.
 Deterministic stagger: delay = base + (hash(building_id, incident_id, seed) % window).
 Projection check: estimated post-pickup frequency must stay >= 49.90 Hz.
 Any relapse below S1 trigger (49.85 Hz) freezes all pending restoration.
@@ -59,6 +60,11 @@ def _restoration_pickup_kw(appliance: Appliance, building: BuildingTwin) -> floa
     return appliance.rated_power_kw * startup_factor * building.weight_k
 
 
+_PRIORITY_ORDER = {"critical": 0, "essential": 1, "deferrable": 2}
+_HEADROOM_RETRY_PU = 0.01
+_FREQUENCY_RETRY_HZ = 0.005
+
+
 class StaggeredRestorationPolicy:
     """
     Manages staggered, projection-checked restoration across all buildings.
@@ -76,6 +82,7 @@ class StaggeredRestorationPolicy:
         f_safe_hz: float = 49.90,
         H: float = 4.0,
         area_base_kw: float = 100.0,
+        up_reserve_pu: float = 0.20,
         base_delay_s: float = 5.0,
         window_s: int = 60,
         stagger_enabled: bool = True,
@@ -88,6 +95,7 @@ class StaggeredRestorationPolicy:
         self.f_safe_hz = f_safe_hz
         self.H = H
         self.area_base_kw = area_base_kw
+        self.up_reserve_pu = up_reserve_pu
         self.base_delay_s = base_delay_s
         self.window_s = window_s
         self.stagger_enabled = stagger_enabled
@@ -101,6 +109,42 @@ class StaggeredRestorationPolicy:
         self._scheduled: dict[float, tuple] = {}
         # Track when each appliance entered WAITING_RESTORATION
         self._waiting_since: dict[tuple[str, str], float] = {}
+        # Unsafe candidates are reconsidered only after a material condition change.
+        self._deferred_conditions: dict[
+            tuple[str, str], tuple[frozenset[str], float, float]
+        ] = {}
+
+    def _generation_headroom_pu(self, grid_state: GridState) -> float:
+        available_generation_pu = (
+            1.0 + self.up_reserve_pu + grid_state.generation_disturbance_pu
+        )
+        return max(0.0, available_generation_pu - grid_state.demand_pu)
+
+    def _should_retry_deferred(
+        self,
+        key: tuple[str, str],
+        headroom_pu: float,
+        frequency_hz: float,
+        pickup_pu: float,
+        projected_frequency_hz: float,
+    ) -> bool:
+        deferred = self._deferred_conditions.get(key)
+        if deferred is None:
+            return True
+        reasons, previous_headroom_pu, previous_frequency_hz = deferred
+        return (
+            "capacity" in reasons
+            and (
+                pickup_pu <= headroom_pu + 1e-12
+                or headroom_pu >= previous_headroom_pu + _HEADROOM_RETRY_PU
+            )
+        ) or (
+            "frequency" in reasons
+            and (
+                projected_frequency_hz >= self.f_safe_hz
+                or frequency_hz >= previous_frequency_hz + _FREQUENCY_RETRY_HZ
+            )
+        )
 
     def tick(
         self,
@@ -162,11 +206,10 @@ class StaggeredRestorationPolicy:
         if self._stable_timer < self.t_stable_s:
             return events
 
-        # Stable enough — collect all WAITING_RESTORATION candidates
-        candidates = []
-        waiting_count = 0
+        # Stable enough — collect eligible candidates. A failed large pickup must
+        # not prevent a smaller, safe load from being restored.
+        candidates: list[tuple[int, float, BuildingTwin, Appliance]] = []
         for b in buildings:
-            waiting_count += len(b.get_restoration_candidates())
             for a in b.get_restoration_candidates_at(sim_time_s):
                 waiting_key = (b.building_id, a.appliance_id)
                 wait_since = self._waiting_since.get(waiting_key, sim_time_s)
@@ -184,44 +227,66 @@ class StaggeredRestorationPolicy:
                 )
                 eligible_at = wait_since + delay + self.t_stable_s
                 if sim_time_s >= eligible_at:
-                    candidates.append((wait_since, b, a))
+                    candidates.append(
+                        (_PRIORITY_ORDER[a.priority], wait_since, b, a)
+                    )
 
-        if not self.stagger_enabled and len(candidates) != waiting_count:
-            return events
-
-        # Sort by longest waiting first
-        candidates.sort(key=lambda x: x[0], reverse=True)
-
-        if not self.stagger_enabled:
-            total_pickup_kw = sum(
-                _restoration_pickup_kw(appliance, building)
-                for _, building, appliance in candidates
+        candidates.sort(
+            key=lambda item: (
+                item[0],
+                -item[1],
+                item[2].building_id,
+                item[3].appliance_id,
             )
-            projected_frequency = _projected_frequency(
-                f, total_pickup_kw, self.area_base_kw, self.H
-            )
-            if projected_frequency < self.f_safe_hz:
-                return events
+        )
+        headroom_pu = self._generation_headroom_pu(grid_state)
+        waiting_keys = {
+            (building.building_id, appliance.appliance_id)
+            for building in buildings
+            for appliance in building.appliances
+            if appliance.state == ApplianceState.WAITING_RESTORATION
+        }
+        self._deferred_conditions = {
+            key: conditions
+            for key, conditions in self._deferred_conditions.items()
+            if key in waiting_keys
+        }
 
-        restored_power_kw = 0.0
-        for _wait_since, b, a in candidates:
+        for _priority, _wait_since, b, a in candidates:
+            key = (b.building_id, a.appliance_id)
             pickup_kw = _restoration_pickup_kw(a, b)
-            # Projection check
+            pickup_pu = pickup_kw / max(self.area_base_kw, 1.0)
             f_projected = _projected_frequency(
-                f,
-                restored_power_kw + pickup_kw,
-                self.area_base_kw,
-                self.H,
+                f, pickup_kw, self.area_base_kw, self.H
             )
+            if not self._should_retry_deferred(
+                key, headroom_pu, f, pickup_pu, f_projected
+            ):
+                continue
+
+            blocked_reasons: set[str] = set()
+            if pickup_pu > headroom_pu + 1e-12:
+                blocked_reasons.add("capacity")
             if f_projected < self.f_safe_hz:
-                break  # stop restoring this tick
+                blocked_reasons.add("frequency")
+            if blocked_reasons:
+                self._deferred_conditions[key] = (
+                    frozenset(blocked_reasons),
+                    headroom_pu,
+                    f,
+                )
+                continue
 
             delta = a.restore(sim_time_s)
             if delta > 0:
-                restored_power_kw += pickup_kw
                 b.apply_demand_delta()
-                self._waiting_since.pop((b.building_id, a.appliance_id), None)
-                restoration_mode = "Synchronized batch" if not self.stagger_enabled else "Staggered"
+                self._waiting_since.pop(key, None)
+                self._deferred_conditions.pop(key, None)
+                restoration_mode = (
+                    "Synchronized progressive"
+                    if not self.stagger_enabled
+                    else "Staggered"
+                )
                 events.append(
                     ControlEvent(
                         run_id=self._run_id,
@@ -237,6 +302,7 @@ class StaggeredRestorationPolicy:
                         priority=a.priority,
                     )
                 )
+                break
 
         return events
 
@@ -249,6 +315,8 @@ class StaggeredRestorationPolicy:
     ) -> dict[str, object]:
         """Return the active safety gate and deterministic restoration queue."""
         queue: list[dict[str, object]] = []
+        headroom_pu = self._generation_headroom_pu(grid_state)
+        headroom_kw = headroom_pu * max(self.area_base_kw, 1.0)
         for building in buildings:
             for appliance in building.appliances:
                 if (
@@ -271,11 +339,13 @@ class StaggeredRestorationPolicy:
                     else 0.0
                 )
                 eligible_at = waiting_since + delay + self.t_stable_s
+                pickup_kw = _restoration_pickup_kw(appliance, building)
                 projected_frequency = _projected_frequency(
-                    grid_state.frequency_hz,
-                    appliance.rated_power_kw * building.weight_k,
-                    self.area_base_kw,
-                    self.H,
+                    grid_state.frequency_hz, pickup_kw, self.area_base_kw, self.H
+                )
+                key = (building.building_id, appliance.appliance_id)
+                capacity_supported = (
+                    pickup_kw / max(self.area_base_kw, 1.0) <= headroom_pu + 1e-12
                 )
                 queue.append(
                     {
@@ -290,16 +360,38 @@ class StaggeredRestorationPolicy:
                         "waiting_since_s": waiting_since,
                         "stagger_delay_s": delay,
                         "eligible_at_s": eligible_at,
+                        "estimated_pickup_kw": pickup_kw,
                         "projected_frequency_hz": projected_frequency,
+                        "capacity_supported": capacity_supported,
                         "ready": (
                             not self._frozen
                             and self._stable_timer >= self.t_stable_s
                             and grid_state.time_s >= eligible_at
+                            and appliance.lockout_remaining_s(grid_state.time_s) <= 0
+                            and capacity_supported
                             and projected_frequency >= self.f_safe_hz
+                            and self._should_retry_deferred(
+                                key,
+                                headroom_pu,
+                                grid_state.frequency_hz,
+                                pickup_kw / max(self.area_base_kw, 1.0),
+                                projected_frequency,
+                            )
                         ),
                     }
                 )
-        queue.sort(key=lambda item: (float(item["eligible_at_s"]), str(item["building_id"])))
+        queue.sort(
+            key=lambda item: (
+                _PRIORITY_ORDER[str(item["priority"])],
+                float(item["eligible_at_s"]),
+                str(item["building_id"]),
+                str(item["appliance_id"]),
+            )
+        )
+        available_generation_pu = max(
+            0.0,
+            1.0 + self.up_reserve_pu + grid_state.generation_disturbance_pu,
+        )
         return {
             "enabled": True,
             "frozen": self._frozen,
@@ -310,5 +402,8 @@ class StaggeredRestorationPolicy:
             "stable_timer_s": self._stable_timer,
             "required_stability_s": self.t_stable_s,
             "stagger_enabled": self.stagger_enabled,
+            "available_generation_pu": available_generation_pu,
+            "headroom_kw": headroom_kw,
+            "completed": not queue,
             "queue": queue,
         }

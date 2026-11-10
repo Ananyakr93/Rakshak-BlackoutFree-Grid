@@ -30,11 +30,10 @@ export function mergeBuildingStateUpdate(
     matched = true;
     return {
       ...building,
-      demand_kw: building.demand_kw
-        + update.current_power_kw
-        - (building.appliances.find(
-          (appliance) => appliance.appliance_id === update.appliance_id,
-        )?.current_power_kw ?? 0),
+      demand_kw: appliances.reduce(
+        (total, appliance) => total + appliance.current_power_kw,
+        0,
+      ),
       simulation_time_s: update.simulation_time_s,
       sequence_number: update.sequence_number,
       updated_at: update.updated_at,

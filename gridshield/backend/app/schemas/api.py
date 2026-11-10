@@ -116,7 +116,9 @@ class RestorationQueueItemResponse(APIResponse):
     waiting_since_s: float
     stagger_delay_s: float
     eligible_at_s: float
+    estimated_pickup_kw: float
     projected_frequency_hz: float
+    capacity_supported: bool
     ready: bool
 
 
@@ -130,6 +132,9 @@ class RestorationStatusResponse(APIResponse):
     stable_timer_s: float
     required_stability_s: float
     stagger_enabled: bool
+    available_generation_pu: float
+    headroom_kw: float
+    completed: bool
     queue: list[RestorationQueueItemResponse]
 
 

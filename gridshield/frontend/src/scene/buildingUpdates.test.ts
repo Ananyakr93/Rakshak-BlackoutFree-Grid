@@ -52,6 +52,36 @@ describe("mergeBuildingStateUpdate", () => {
     expect(building.updated_at).toBe(update.updated_at);
   });
 
+  it("does not accumulate negative demand when floating-point loads are shed", () => {
+    const building: BuildingSnapshot = {
+      ...initial,
+      demand_kw: 0.3,
+      appliances: [
+        { ...initial.appliances[0], appliance_id: "light", current_power_kw: 0.1, rated_power_kw: 0.1 },
+        { ...initial.appliances[0], appliance_id: "fan", current_power_kw: 0.2, rated_power_kw: 0.2 },
+      ],
+    };
+    const [afterLightShed] = mergeBuildingStateUpdate(
+      [building],
+      { ...update, current_power_kw: 0, rated_power_kw: 0.1 },
+    );
+    const [afterFanShed] = mergeBuildingStateUpdate(
+      [afterLightShed],
+      {
+        ...update,
+        appliance_id: "fan",
+        current_power_kw: 0,
+        rated_power_kw: 0.2,
+        sequence_number: 2,
+      },
+    );
+
+    expect(afterFanShed.demand_kw).toBe(0);
+    expect(afterFanShed.demand_kw).toBe(
+      afterFanShed.appliances.reduce((total, appliance) => total + appliance.current_power_kw, 0),
+    );
+  });
+
   it("does not apply an update from another run", () => {
     const buildings = [initial];
     expect(

@@ -276,6 +276,20 @@ class SimulationClock:
         """Expose the current restoration safety gate and queued appliances."""
         restoration = getattr(self.policy, "restoration_policy", None)
         if restoration is None:
+            area_base_kw = max(
+                sum(
+                    appliance.rated_power_kw * building.weight_k
+                    for building in self.buildings
+                    for appliance in building.appliances
+                ),
+                1.0,
+            )
+            available_generation_pu = max(
+                0.0,
+                1.0
+                + self.scenario.grid_params.up_reserve_pu
+                + self._state.generation_disturbance_pu,
+            )
             return {
                 "enabled": False,
                 "frozen": False,
@@ -286,6 +300,12 @@ class SimulationClock:
                 "stable_timer_s": 0.0,
                 "required_stability_s": self.scenario.grid_params.t_stable_s,
                 "stagger_enabled": False,
+                "available_generation_pu": available_generation_pu,
+                "headroom_kw": max(
+                    0.0,
+                    (available_generation_pu - self._state.demand_pu) * area_base_kw,
+                ),
+                "completed": False,
                 "queue": [],
             }
         return restoration.snapshot(

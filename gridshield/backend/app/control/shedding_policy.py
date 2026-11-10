@@ -215,10 +215,23 @@ class ADMSFeederPolicy(BasePolicy):
         # Determine if this building's feeder should be tripped
         bid = building.building_id
         stage = self._get_stage(bid)
+        p = self.grid_params
         should_trip = (
-            (stage == "stage1" and self._hold["stage1"] >= self.grid_params.t_s1_hold_s)
-            or (stage == "stage2" and self._hold["stage2"] >= self.grid_params.t_s2_hold_s)
-            or (stage == "stage3" and self._hold["stage3"] >= self.grid_params.t_s3_hold_s)
+            (
+                stage == "stage1"
+                and f <= p.f_s1_hz
+                and self._hold["stage1"] >= p.t_s1_hold_s
+            )
+            or (
+                stage == "stage2"
+                and f <= p.f_s2_hz
+                and self._hold["stage2"] >= p.t_s2_hold_s
+            )
+            or (
+                stage == "stage3"
+                and f <= p.f_s3_hz
+                and self._hold["stage3"] >= p.t_s3_hold_s
+            )
         )
 
         if should_trip and bid not in self._tripped:

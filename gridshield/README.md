@@ -62,26 +62,27 @@ The saved E1-E4 experiment summary is mounted read-only for the results view.
 
 ### Run services directly
 
-For a local SQLite run without Docker, use two PowerShell terminals from
-`gridshield\`. In the first terminal:
+For a local SQLite run without Docker, use two PowerShell terminals. If your
+current directory is the repository root, start the backend in the first
+terminal:
 
 ```powershell
-Set-Location .\backend
+Set-Location .\gridshield\backend
 python -m pip install -e ".[dev]"
-$env:DATABASE_URL = "sqlite+aiosqlite:///./blackoutfree.db"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8080
 ```
 
-In the second terminal:
+In a second terminal, start the frontend:
 
 ```powershell
-Set-Location .\frontend
+Set-Location .\gridshield\frontend
 npm ci
-$env:VITE_API_BASE_URL = "http://127.0.0.1:8080"
 npm run dev -- --host 127.0.0.1 --port 3000
 ```
 
-The backend defaults to SQLite when no `DATABASE_URL` is set. To use
+The backend defaults to SQLite when no `DATABASE_URL` is set. Open
+[http://localhost:3000](http://localhost:3000) for the dashboard and
+[http://localhost:8080/docs](http://localhost:8080/docs) for the API. To use
 PostgreSQL, start the Compose `postgres` service and configure the backend
 connection string. Do not commit local `.env` values.
 
@@ -91,8 +92,10 @@ The simulation applies a seeded disturbance to a reduced-order grid-frequency
 model and evaluates the selected control policy. P0 leaves demand unmanaged;
 P1 emulates feeder-stage response; P2 uses appliance priorities to shed
 lower-priority demand while protecting critical loads where feasible. P2
-restoration is stability-gated and staged or synchronized according to the
-selected mode; P3 disables restoration. Shed and restore events include a
+restoration is stability- and capacity-gated; both modes restore one eligible
+appliance per control tick, with deterministic stagger delays in the standard
+P2 mode. Frequency projection and available generation headroom must both
+permit each pickup; P3 disables restoration. Shed and restore events include a
 short decision reason. These are model decisions, not guaranteed protections
 for a real grid.
 
@@ -103,7 +106,7 @@ for a real grid.
 2. Select a scenario and one of `P0_unmanaged`, `P1_adms_feeder`,
    `P2_priority_edge`, `P2_priority_edge_synchronized`, or
    `P3_priority_edge_no_restoration`, then start a run. The two P2 modes use
-   staggered or safety-gated batch restoration; P3 disables restoration.
+   staggered or immediate progressive restoration; P3 disables restoration.
 3. Tune the disturbance, recovery ramp, inertia, governor response, protection
    thresholds and hold times, edge mode, communication-loss probability, and
    playback speed before launching a run. Pause, resume, or stop an active

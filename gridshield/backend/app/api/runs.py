@@ -133,6 +133,7 @@ def _make_policy(
                 f_freeze_hz=grid.f_s1_hz,
                 H=grid.H,
                 area_base_kw=area_base_kw,
+                up_reserve_pu=grid.up_reserve_pu,
                 sample_interval_s=settings.AGENT_SAMPLE_INTERVAL_S,
                 stagger_enabled=policy_name == "P2_priority_edge",
             ),

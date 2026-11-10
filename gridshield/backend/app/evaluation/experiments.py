@@ -307,6 +307,7 @@ def _clone_policy(
                     f_safe_hz=restoration.f_safe_hz,
                     H=restoration.H,
                     area_base_kw=area_base_kw,
+                    up_reserve_pu=grid.up_reserve_pu,
                     base_delay_s=restoration.base_delay_s,
                     window_s=restoration.window_s,
                     stagger_enabled=restoration.stagger_enabled,
